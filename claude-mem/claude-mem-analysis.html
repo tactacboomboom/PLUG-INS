@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧠 claude-mem — Analyse</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --surface: #252526;
+    --surface2: #2d2d30;
+    --border: #3e3e42;
+    --accent: #007acc;
+    --accent2: #0e639c;
+    --green: #4ec9b0;
+    --yellow: #dcdcaa;
+    --orange: #ce9178;
+    --red: #f44747;
+    --purple: #c586c0;
+    --blue: #9cdcfe;
+    --text: #d4d4d4;
+    --text-dim: #858585;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+
+  /* TOPBAR */
+  .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0; padding: 0 24px; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--blue); padding: 14px 20px 14px 0; border-right: 1px solid var(--border); margin-right: 8px; white-space: nowrap; }
+  .tab-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 14px 18px; font-size: 13px; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--text); background: var(--surface2); }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  /* CONTENT */
+  .content { display: none; max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  .content.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 16px; font-weight: 600; color: var(--yellow); margin-bottom: 14px; }
+  .card h3 { font-size: 14px; font-weight: 600; color: var(--blue); margin: 16px 0 8px; }
+  .card p { margin-bottom: 10px; color: var(--text); }
+  .card ul { padding-left: 20px; }
+  .card li { margin-bottom: 6px; }
+
+  /* TAGS */
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; margin: 2px; }
+  .tag.green { background: rgba(78,201,176,0.15); color: var(--green); border: 1px solid rgba(78,201,176,0.3); }
+  .tag.yellow { background: rgba(220,220,170,0.12); color: var(--yellow); border: 1px solid rgba(220,220,170,0.25); }
+  .tag.red { background: rgba(244,71,71,0.12); color: var(--red); border: 1px solid rgba(244,71,71,0.25); }
+  .tag.blue { background: rgba(156,220,254,0.1); color: var(--blue); border: 1px solid rgba(156,220,254,0.2); }
+  .tag.purple { background: rgba(197,134,192,0.12); color: var(--purple); border: 1px solid rgba(197,134,192,0.25); }
+  .tag.orange { background: rgba(206,145,120,0.12); color: var(--orange); border: 1px solid rgba(206,145,120,0.25); }
+
+  /* LAYER BADGE */
+  .layer-badge { display: inline-block; background: var(--accent2); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-right: 8px; }
+
+  /* ALERTS */
+  .alert { padding: 12px 16px; border-radius: 5px; margin: 12px 0; font-size: 13px; }
+  .alert.ok { background: rgba(78,201,176,0.1); border-left: 3px solid var(--green); }
+  .alert.warn { background: rgba(220,220,170,0.1); border-left: 3px solid var(--yellow); }
+  .alert.danger { background: rgba(244,71,71,0.1); border-left: 3px solid var(--red); }
+  .alert strong { display: block; margin-bottom: 4px; }
+
+  /* INVARIANTS */
+  .invariant-row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .invariant-row:last-child { border-bottom: none; }
+  .inv-label { color: var(--purple); font-weight: 700; font-size: 12px; min-width: 30px; }
+
+  /* PULL QUOTE */
+  .pull-quote { border-left: 3px solid var(--accent); padding: 12px 16px; margin: 16px 0; background: var(--surface2); border-radius: 0 5px 5px 0; font-style: italic; color: var(--blue); }
+
+  /* TABLE */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th { background: var(--surface2); color: var(--yellow); text-align: left; padding: 8px 12px; font-size: 12px; border: 1px solid var(--border); }
+  td { padding: 7px 12px; border: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+  /* CODE */
+  pre { background: #0d0d0d; border: 1px solid var(--border); border-radius: 5px; padding: 14px 16px; overflow-x: auto; margin: 10px 0; }
+  code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: var(--green); }
+  p code, li code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; color: var(--orange); font-size: 12px; }
+
+  /* PIPELINE */
+  .pipeline { display: flex; align-items: center; gap: 0; flex-wrap: wrap; margin: 14px 0; }
+  .pipe-node { background: var(--surface2); border: 1px solid var(--accent); color: var(--blue); padding: 7px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .pipe-arrow { color: var(--text-dim); padding: 0 8px; font-size: 16px; }
+
+  /* PROGRESS */
+  .progress-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .progress-label { width: 160px; font-size: 12px; color: var(--text-dim); }
+  .progress-bar { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+
+  /* RISK GRID */
+  .risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .risk-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 14px; }
+  .risk-card .risk-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+
+  /* USE CASES */
+  .use-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .use-case { background: var(--surface2); border-radius: 5px; padding: 14px; border: 1px solid var(--border); }
+  .use-case.yes { border-left: 3px solid var(--green); }
+  .use-case.no { border-left: 3px solid var(--red); }
+  .use-case .uc-label { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .use-case.yes .uc-label { color: var(--green); }
+  .use-case.no .uc-label { color: var(--red); }
+
+  /* SCORE */
+  .score-row { display: flex; align-items: center; gap: 16px; margin: 10px 0; }
+  .score-num { font-size: 28px; font-weight: 700; color: var(--green); min-width: 50px; }
+  .score-desc { font-size: 12px; color: var(--text-dim); }
+
+  /* FOOTER */
+  footer { text-align: center; padding: 24px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); margin-top: 40px; }
+  footer a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">🧠 claude-mem</div>
+  <button class="tab-btn active" onclick="switchTab('recit', this)">📖 Récit</button>
+  <button class="tab-btn" onclick="switchTab('fmaths', this)">🔬 Fmaths</button>
+  <button class="tab-btn" onclick="switchTab('install', this)">⚙️ Installation</button>
+  <button class="tab-btn" onclick="switchTab('verdict', this)">⚖️ Verdict PM</button>
+</div>
+
+<!-- ===== TAB RÉCIT ===== -->
+<div class="content active" id="tab-recit">
+
+  <div class="card">
+    <h2>1. Le décor</h2>
+    <p>Claude Code oublie tout à la fin de chaque session. Cette amnésie est by design — le contexte se réinitialise, les projets recommencent à zéro. <strong>claude-mem</strong> est la prothèse mémorielle qui corrige ça : un worker local qui observe silencieusement chaque action, compresse avec un LLM, et réinjecte le contexte pertinent à la session suivante.</p>
+    <p>Le système repose sur cinq primitives : la <strong>Session</strong> (unité de travail), l'<strong>Observation</strong> (capture atomique d'un tool-use), le <strong>Summary</strong> (résumé structuré d'un tour), le <strong>Context</strong> (ce qui est injecté au démarrage), et le <strong>Worker</strong> (démon local orchestrateur). Deux couches de stockage : SQLite pour le structuré, ChromaDB pour le vectoriel.</p>
+    <div class="pull-quote">"Persistent Context Across Sessions for Every Agent" — 76.6k étoiles, Apache-2.0, 7 releases en 7 jours.</div>
+  </div>
+
+  <div class="card">
+    <h2>2. Les règles du jeu</h2>
+    <p>Le cycle de vie s'accroche à cinq hooks Claude Code. Au démarrage de session : le worker se lance et injecte le contexte mémorisé. À chaque message utilisateur : la session s'initialise. Après chaque outil utilisé : une observation est capturée. À chaque réponse de Claude (Stop) : un résumé est généré. Ces hooks sont <strong>non-bloquants</strong> — si le worker est absent, Claude Code continue sans eux.</p>
+    <p>La tension principale : le système utilise <strong>ta propre clé Anthropic</strong> pour les appels LLM de summarize. Ce n'est pas un service externe — c'est un serveur Express local sur <code>127.0.0.1:37777</code>. Tes données ne quittent pas ta machine (en mode worker local).</p>
+    <div class="pull-quote">⚠️ Chaque réponse de Claude déclenche un appel LLM de summarize. Sur un abonnement Claude, c'est invisible. Sur une clé API facturée à l'usage, chaque tour coûte.</div>
+  </div>
+
+  <div class="card">
+    <h2>3. Le socle immuable</h2>
+    <p>Cinq invariants ne bougent pas. Le worker est <strong>toujours local</strong> — aucune fuite externe en mode par défaut. Les hooks ne <strong>bloquent jamais</strong> Claude Code — exit 0 systématique sur erreur. La DB ne <strong>perd jamais</strong> de données — queue de messages en attente et retry exponentiel. Les tokens consommés <strong>appartiennent à l'utilisateur</strong> — sa clé, ses coûts. La licence Apache-2.0 autorise <strong>tout usage commercial</strong> sans restriction.</p>
+    <div class="alert ok"><strong>✅ Architecture de confiance</strong>Rien ne part chez thedotmack. Le code est open-source, auditable, local-first.</div>
+  </div>
+
+  <div class="card">
+    <h2>4. Les leviers de transformation</h2>
+    <p>Le système offre quatre axes de variation majeurs. Le <strong>mode runtime</strong> : worker local (défaut, stable) ou server-beta (Postgres + BullMQ + Redis, opt-in, pour les équipes). Le <strong>provider LLM</strong> : Anthropic, OpenAI, ou Google — configurable. Le <strong>stockage</strong> : SQLite seul ou SQLite + ChromaDB hybride. La <strong>disclosure</strong> : index compact (50–100 tokens) → timeline → détails complets, selon la précision nécessaire.</p>
+    <p>La relicence AGPL → Apache-2.0 en v13.0.0 est un signal fort : thedotmack vise l'adoption enterprise et l'embedding dans d'autres outils. La roadmap server-beta montre une ambition au-delà du plugin Claude Code.</p>
+  </div>
+
+  <div class="card">
+    <h2>5. Les points de rupture</h2>
+    <table>
+      <tr><th>Seuil</th><th>Condition</th><th>Impact</th><th>Mitigation</th></tr>
+      <tr><td>Port 37777 occupé</td><td>Autre processus sur le port</td><td>Worker ne démarre pas</td><td>Configurable via CLAUDE_MEM_SERVER_URL</td></tr>
+      <tr><td>Context overflow</td><td>Trop d'observations injectées</td><td>Hard-stop (v12.7.3+)</td><td>Progressive disclosure 3 niveaux</td></tr>
+      <tr><td>Clé API absente</td><td>ANTHROPIC_API_KEY non définie</td><td>Summarize échoue silencieusement</td><td>Dégradation gracieuse, exit 0</td></tr>
+      <tr><td>ChromaDB absent</td><td>Chroma non installé</td><td>Search revient au SQL seul</td><td>FTS5 fallback automatique</td></tr>
+      <tr><td>Hooks API changée</td><td>Anthropic modifie Claude Code</td><td>Hooks cassent</td><td>Cadence de release rapide (mitigation réactive)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>6. Le chemin de moindre résistance</h2>
+    <div class="pipeline">
+      <div class="pipe-node">npx claude-mem install</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">Claude Code démarre</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">Worker sur :37777</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">Travail normal</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">Observations capturées</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">Session suivante enrichie</div>
+    </div>
+    <p>Une commande, zéro friction. Le worker s'auto-installe avec Bun si absent. Les hooks se configurent automatiquement dans <code>settings.json</code>. La mémoire commence à s'accumuler dès la première session sans configuration manuelle.</p>
+    <p>Le nœud de friction principal : la compatibilité Windows. Les hooks utilisent bash — ils tournent via Git Bash sur Windows, mais certains edge cases de paths peuvent poser problème (le code inclut <code>cygpath</code> pour la conversion).</p>
+  </div>
+
+  <div class="card">
+    <h2>7. L'équilibre du risque</h2>
+    <p>À 76.6k étoiles et une cadence de release quotidienne, claude-mem est l'un des plugins Claude Code les plus adoptés. Le risque de lock-in est réel : le format SQLite est custom, la migration vers un autre système de mémoire demanderait un export manuel. La dépendance aux hooks Claude Code crée un risque upstream si Anthropic change leur API.</p>
+    <p>Pour un usage solo comme celui de Yanis, le ratio risque/bénéfice est clairement positif. La mémoire locale, la clé API propre, l'open-source auditable — tous les invariants de confiance sont là. Le combo avec <strong>graphify</strong> est la vraie valeur ajoutée : claude-mem fournit les observations structurées, graphify en fait de la topologie.</p>
+    <div class="pull-quote">"Le lock-in est dans la DB, pas dans le code. Tant que vous exportez régulièrement les observations, vous gardez la maîtrise."</div>
+  </div>
+
+</div>
+
+<!-- ===== TAB FMATHS ===== -->
+<div class="content" id="tab-fmaths">
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L0</span><strong>Ontologie — Objets fondamentaux</strong></div>
+    <p>8 primitives non-redondantes :</p>
+    <table>
+      <tr><th>Primitive</th><th>Définition</th></tr>
+      <tr><td><code>Session</code></td><td>Unité de travail Claude Code, délimitée par SessionStart/Stop</td></tr>
+      <tr><td><code>Observation</code></td><td>Capture atomique d'un événement tool-use (text, facts, narrative, concepts)</td></tr>
+      <tr><td><code>Summary</code></td><td>Résumé structuré d'un tour (request, investigated, learned, completed, next_steps)</td></tr>
+      <tr><td><code>Context</code></td><td>Ensemble d'observations injectées au démarrage d'une session</td></tr>
+      <tr><td><code>Worker</code></td><td>Démon local HTTP (Express/Bun) sur 127.0.0.1:37777</td></tr>
+      <tr><td><code>Hook</code></td><td>Point d'ancrage dans le cycle de vie Claude Code (5 événements)</td></tr>
+      <tr><td><code>Storage</code></td><td>SQLite (structuré) + ChromaDB (vectoriel, optionnel)</td></tr>
+      <tr><td><code>Agent</code></td><td>Instance @anthropic-ai/claude-agent-sdk qui traite les observations</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L1</span><strong>Ensembles & Relations</strong></div>
+    <table>
+      <tr><th>De</th><th>Relation</th><th>Vers</th></tr>
+      <tr><td>Claude Code</td><td>→ déclenche →</td><td>Hook</td></tr>
+      <tr><td>Hook</td><td>→ appelle →</td><td>Worker (HTTP POST)</td></tr>
+      <tr><td>Worker</td><td>→ écrit →</td><td>Storage (SQLite + ChromaDB)</td></tr>
+      <tr><td>Storage</td><td>→ alimente →</td><td>Context (injection session suivante)</td></tr>
+      <tr><td>Session</td><td>→ génère →</td><td>Observations + Summaries</td></tr>
+      <tr><td>Observations</td><td>→ vectorisées dans →</td><td>ChromaDB</td></tr>
+      <tr><td>ChromaDB + SQLite</td><td>→ exposé via →</td><td>MCP Server (3 outils)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L2</span><strong>Logique & Connecteurs</strong></div>
+    <table>
+      <tr><th>Condition</th><th>Résultat</th></tr>
+      <tr><td>Hook fires AND Worker disponible AND clé API présente</td><td>Observation stockée normalement</td></tr>
+      <tr><td>Hook fires AND Worker absent</td><td>Exit 0, session continue sans mémoire</td></tr>
+      <tr><td>SessionStart AND contexte existant</td><td>Injection du contexte pertinent</td></tr>
+      <tr><td>SessionStart AND base vide</td><td>Session froide, pas d'injection</td></tr>
+      <tr><td>ChromaDB présent XOR absent</td><td>Hybrid search XOR SQL FTS5 fallback</td></tr>
+      <tr><td>Server-beta activé</td><td>Postgres + BullMQ remplace SQLite local</td></tr>
+    </table>
+    <div class="alert warn"><strong>⚠️ Tension principale</strong>Le summarize consomme des tokens à chaque réponse Claude. Sur clé API facturée à l'usage, le coût est multiplicateur (N sessions × M tours × coût résumé).</div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L3</span><strong>Invariants</strong></div>
+    <div class="invariant-row"><span class="inv-label">I1</span><span>Worker TOUJOURS local — 127.0.0.1:37777 — aucune donnée ne quitte la machine en mode défaut</span></div>
+    <div class="invariant-row"><span class="inv-label">I2</span><span>Hooks JAMAIS bloquants — exit 0 systématique sur erreur, Claude Code continue</span></div>
+    <div class="invariant-row"><span class="inv-label">I3</span><span>DB jamais corrompue — pending queue + retry exponentiel (1s, 2s, 4s) + 3 redémarrages max</span></div>
+    <div class="invariant-row"><span class="inv-label">I4</span><span>Tokens appartiennent à l'utilisateur — sa clé API, ses coûts, sa responsabilité</span></div>
+    <div class="invariant-row"><span class="inv-label">I5</span><span>Apache-2.0 — usage commercial libre, embedding autorisé, fork autorisé</span></div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L4</span><strong>Axes de Variation</strong></div>
+    <table>
+      <tr><th>Axe</th><th>Min</th><th>Max</th><th>État actuel (défaut)</th></tr>
+      <tr><td>Runtime</td><td>Worker local (SQLite)</td><td>Server-beta (Postgres+Redis)</td><td>Worker local</td></tr>
+      <tr><td>Provider LLM</td><td>Anthropic seulement</td><td>Anthropic + OpenAI + Google</td><td>Anthropic (OAuth)</td></tr>
+      <tr><td>Storage</td><td>SQLite seul</td><td>SQLite + ChromaDB hybride</td><td>SQLite (Chroma optionnel)</td></tr>
+      <tr><td>Disclosure</td><td>Index compact (50–100 tok)</td><td>Full observations</td><td>Progressive 3 niveaux</td></tr>
+      <tr><td>Langue</td><td>Anglais</td><td>ZH, JA, EN</td><td>code (EN)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L5</span><strong>Seuils & Stabilité</strong></div>
+    <div class="progress-row"><span class="progress-label">Maturité codebase</span><div class="progress-bar"><div class="progress-fill" style="width:88%;background:var(--green)"></div></div><span>88%</span></div>
+    <div class="progress-row"><span class="progress-label">Stabilité API hooks</span><div class="progress-bar"><div class="progress-fill" style="width:65%;background:var(--yellow)"></div></div><span>65%</span></div>
+    <div class="progress-row"><span class="progress-label">Server-beta prod-ready</span><div class="progress-bar"><div class="progress-fill" style="width:40%;background:var(--orange)"></div></div><span>40%</span></div>
+    <div class="progress-row"><span class="progress-label">Couverture tests</span><div class="progress-bar"><div class="progress-fill" style="width:55%;background:var(--yellow)"></div></div><span>55%</span></div>
+    <div class="alert warn" style="margin-top:12px"><strong>⚠️ Seuil critique : context overflow</strong>Ajouté en v12.7.3 — hard-stop si trop d'observations injectées. La progressive disclosure (3 niveaux MCP) est la mitigation principale.</div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L6</span><strong>Catégories & Couplages</strong></div>
+    <table>
+      <tr><th>Module</th><th>Statut</th><th>Couplage</th></tr>
+      <tr><td>Core (hooks + worker + SQLite)</td><td><span class="tag green">✅ Stable</span></td><td>Fort avec Claude Code hooks API</td></tr>
+      <tr><td>MCP Search (3 outils)</td><td><span class="tag green">✅ Stable</span></td><td>Faible (optionnel)</td></tr>
+      <tr><td>ChromaDB (vectoriel)</td><td><span class="tag yellow">⚠️ Optionnel</span></td><td>Faible (fallback FTS5)</td></tr>
+      <tr><td>Server-beta (Postgres+BullMQ)</td><td><span class="tag orange">🔄 Beta</span></td><td>Fort (Redis requis)</td></tr>
+      <tr><td>Web viewer UI (React 19)</td><td><span class="tag green">✅ Inclus</span></td><td>Faible (port 37777)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L7</span><strong>Topologie — Happy Path</strong></div>
+    <div class="pipeline" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">1. npx claude-mem install</div><span style="color:var(--text-dim);font-size:12px">← une commande, ~30s</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">2. claude (démarrage session)</div><span style="color:var(--text-dim);font-size:12px">← hooks se chargent auto</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">3. Worker démarre sur :37777</div><span style="color:var(--text-dim);font-size:12px">← Bun auto-installé si absent</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">4. Travail normal</div><span style="color:var(--text-dim);font-size:12px">← PostToolUse capture chaque action</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">5. Stop → summarize</div><span style="color:var(--text-dim);font-size:12px">← résumé en DB, tokens consommés</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">6. Session suivante enrichie</div><span style="color:var(--text-dim);font-size:12px">← contexte injecté auto</span></div>
+    </div>
+    <div class="alert warn" style="margin-top:14px"><strong>⚠️ Nœud de friction Windows</strong>Les hooks bash utilisent cygpath pour la conversion de paths. Fonctionne via Git Bash, mais des edge cases de paths avec espaces peuvent casser (ex: "Mon Drive").</div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L8</span><strong>Probabilités & Incertitude</strong></div>
+    <div class="risk-grid">
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--red)">P(lock-in) = 0.65</div>
+        <p style="font-size:12px;color:var(--text-dim)">SQLite custom + ChromaDB propriétaire. Migration vers un autre système = export manuel des observations.</p>
+      </div>
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--yellow)">P(rupture upstream) = 0.35</div>
+        <p style="font-size:12px;color:var(--text-dim)">Anthropic peut changer l'API hooks Claude Code. Atténué par la cadence de release rapide du projet.</p>
+      </div>
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--green)">P(breaking change) = 0.08</div>
+        <p style="font-size:12px;color:var(--text-dim)">7 versions récentes sans BC. Backward compat rigoureusement maintenu.</p>
+      </div>
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--green)">P(abandon projet) = 0.05</div>
+        <p style="font-size:12px;color:var(--text-dim)">76.6k stars, release quotidienne, Apache-2.0. Probabilité d'abandon quasi-nulle à court terme.</p>
+      </div>
+    </div>
+    <h3>Vecteur cognitif — bilan</h3>
+    <table>
+      <tr><th>Dimension</th><th>État</th><th>Note</th></tr>
+      <tr><td>Abstraction</td><td><span class="tag green">✅</span></td><td>Architecture bien définie, primitives claires</td></tr>
+      <tr><td>Concrétude</td><td><span class="tag green">✅</span></td><td>SQLite local, code auditable, port connu</td></tr>
+      <tr><td>Affect</td><td><span class="tag green">✅</span></td><td>Communauté très active, engagement élevé</td></tr>
+      <tr><td>Normativité</td><td><span class="tag yellow">⚠️</span></td><td>Server-beta non stabilisé, roadmap en mutation</td></tr>
+      <tr><td>Incertitude</td><td><span class="tag yellow">⚠️</span></td><td>Dépendance hooks API Claude Code</td></tr>
+      <tr><td>Altérité</td><td><span class="tag green">✅</span></td><td>Multi-provider, multi-langue, multi-IDE</td></tr>
+      <tr><td>Cohérence</td><td><span class="tag green">✅</span></td><td>Invariants solides, dégradation gracieuse partout</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- ===== TAB INSTALLATION ===== -->
+<div class="content" id="tab-install">
+
+  <div class="card">
+    <h2>Prérequis</h2>
+    <table>
+      <tr><th>Outil</th><th>Version min</th><th>Vérification</th></tr>
+      <tr><td>Node.js</td><td>20.0.0</td><td><code>node --version</code></td></tr>
+      <tr><td>npm / npx</td><td>inclus Node</td><td><code>npx --version</code></td></tr>
+      <tr><td>Claude Code CLI</td><td>avec plugin support</td><td><code>claude --version</code></td></tr>
+      <tr><td>Bun</td><td>1.0.0 (auto-installé)</td><td><code>bun --version</code></td></tr>
+      <tr><td>Git Bash (Windows)</td><td>pour les hooks bash</td><td><code>bash --version</code></td></tr>
+    </table>
+    <div class="alert warn"><strong>⚠️ Windows — Git Bash requis</strong>Les hooks utilisent bash. Installer Git for Windows si ce n'est pas fait : <code>winget install Git.Git</code></div>
+  </div>
+
+  <div class="card">
+    <h2>Option A — Installation rapide (recommandée)</h2>
+    <pre><code># Installation en une commande
+npx claude-mem install
+
+# Vérifier que le worker tourne
+npx claude-mem status</code></pre>
+    <p>La commande installe les hooks dans <code>~/.claude/settings.json</code>, télécharge Bun si absent, et configure le worker sur le port 37777.</p>
+  </div>
+
+  <div class="card">
+    <h2>Option B — Depuis le repo source</h2>
+    <pre><code># Cloner le repo
+git clone https://github.com/thedotmack/claude-mem
+cd claude-mem
+
+# Installer les dépendances
+npm install
+
+# Build
+npm run build
+
+# Installer les hooks
+npm run install:hooks</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Configuration minimale</h2>
+    <p>Fichier : <code>~/.claude-mem/settings.json</code></p>
+    <pre><code>{
+  "CLAUDE_MEM_RUNTIME": "worker",       // "worker" (local) ou "server" (beta)
+  "CLAUDE_MEM_MODE": "code",            // "code", "code--zh", "code--ja"
+  "CLAUDE_MEM_SERVER_URL": "http://127.0.0.1:37777"  // optionnel, port custom
+}</code></pre>
+    <div class="alert warn"><strong>⚠️ Clé API</strong>claude-mem utilise votre <code>ANTHROPIC_API_KEY</code> (ou token OAuth Claude Code) pour les appels LLM. Chaque session consomme des tokens pour les résumés.</div>
+  </div>
+
+  <div class="card">
+    <h2>Commandes de gestion</h2>
+    <pre><code># Statut du worker
+npx claude-mem status
+
+# Démarrer manuellement le worker
+npx claude-mem worker:start
+
+# Arrêter le worker
+npx claude-mem worker:stop
+
+# Voir les logs
+npx claude-mem logs
+
+# Ouvrir le web viewer (UI React)
+start http://127.0.0.1:37777</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Vérification — l'installation fonctionne</h2>
+    <pre><code># 1. Démarrer une session Claude Code
+claude
+
+# 2. Dans la session, vérifier que le hook a injecté du contexte
+# Vous devriez voir dans le prompt système :
+# [claude-mem] Worker démarré
+
+# 3. Tester la recherche MCP (dans une session Claude)
+# Utiliser le skill /recall ou demander directement :
+# "Qu'est-ce que tu te souviens de mes projets ?"</code></pre>
+    <div class="alert ok"><strong>✅ Signe que ça marche</strong>Au démarrage de session, vous voyez <code>[drive-memory] INDEX (début de session):</code> suivi du contenu de MEMORY.md dans les system hooks.</div>
+  </div>
+
+  <div class="card">
+    <h2>Points d'attention Windows</h2>
+    <div class="alert warn"><strong>⚠️ Paths avec espaces</strong>Les hooks bash peuvent avoir des problèmes avec des chemins contenant des espaces (ex: <code>G:\Mon Drive\</code>). Encadrer les paths avec des guillemets dans les commandes.</div>
+    <div class="alert warn"><strong>⚠️ Port 37777</strong>Vérifier qu'aucun autre processus n'utilise le port : <code>netstat -ano | findstr 37777</code></div>
+    <div class="alert ok"><strong>✅ cygpath intégré</strong>Le code inclut une conversion cygpath automatique pour les paths Windows dans les hooks bash. Fonctionne avec Git Bash sans configuration supplémentaire.</div>
+  </div>
+
+</div>
+
+<!-- ===== TAB VERDICT ===== -->
+<div class="content" id="tab-verdict">
+
+  <div class="card">
+    <h2>Score PM — 3 dimensions</h2>
+    <div class="score-row">
+      <div class="score-num">9.1</div>
+      <div>
+        <div style="font-weight:600;color:var(--yellow)">Pertinence — Mémoire persistante pour agent solo</div>
+        <div class="score-desc">Répond exactement au besoin : continuité de contexte entre sessions Claude Code, sans friction. Combo graphify rend la valeur exponentielle.</div>
+      </div>
+    </div>
+    <div class="score-row">
+      <div class="score-num">8.4</div>
+      <div>
+        <div style="font-weight:600;color:var(--yellow)">Maturité prod</div>
+        <div class="score-desc">76.6k stars, Apache-2.0, 1899 commits, release quotidienne. Seul bémol : server-beta encore instable, tests coverage partielle.</div>
+      </div>
+    </div>
+    <div class="score-row">
+      <div class="score-num">9.5</div>
+      <div>
+        <div style="font-weight:600;color:var(--yellow)">Facilité onboarding</div>
+        <div class="score-desc">1 commande, 0 configuration obligatoire, dégradation gracieuse. Le meilleur score possible pour un outil de cette complexité.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Forces</h2>
+    <table>
+      <tr><th>Force</th><th>Description</th></tr>
+      <tr><td>🔒 Local-first</td><td>Tout tourne sur 127.0.0.1. Aucune donnée externe en mode défaut. Auditable.</td></tr>
+      <tr><td>⚡ Zero-config</td><td>Une commande d'install. Bun auto-installé. Hooks auto-configurés.</td></tr>
+      <tr><td>🧠 Progressive disclosure</td><td>3 niveaux MCP : index compact → timeline → détails. Économise ~10x les tokens.</td></tr>
+      <tr><td>🔄 Dégradation gracieuse</td><td>exit 0 partout. Claude Code ne bloque jamais si le worker est absent.</td></tr>
+      <tr><td>📦 Apache-2.0</td><td>Libre pour usage commercial, embedding, fork. Relicencé depuis AGPL en v13.</td></tr>
+      <tr><td>🌍 Multi-provider</td><td>Anthropic, OpenAI, Google. Pas de vendor-lock sur le LLM de résumé.</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Faiblesses & Risques</h2>
+    <table>
+      <tr><th>Risque</th><th>Impact</th></tr>
+      <tr><td>🔒 Lock-in SQLite custom</td><td>Migration vers un autre système de mémoire = export manuel. Format propriétaire.</td></tr>
+      <tr><td>💸 Coût tokens caché</td><td>Chaque réponse Claude = appel LLM de summarize. Sur clé API facturée, coût multiplicateur.</td></tr>
+      <tr><td>🪝 Dépendance hooks API</td><td>Anthropic peut modifier l'API hooks. Mitigation : cadence release réactive, mais risque réel.</td></tr>
+      <tr><td>🪟 Friction Windows</td><td>Hooks bash + paths avec espaces. Cygpath intégré mais edge cases possibles.</td></tr>
+      <tr><td>🧪 Server-beta instable</td><td>Postgres + BullMQ + Redis requis. Architecture en migration, pas production-ready.</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Matrice Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Agent solo multi-sessions</div>
+        <p style="font-size:12px">Yanis qui travaille seul sur plusieurs projets en parallèle. claude-mem maintient le contexte de chaque projet entre sessions.</p>
+      </div>
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Combo avec graphify</div>
+        <p style="font-size:12px">Les observations structurées (facts, concepts, narrative) sont exactement le format attendu par graphify pour construire un knowledge graph.</p>
+      </div>
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Continuité projet longue durée</div>
+        <p style="font-size:12px">Sur des projets comme khaldoun ou Claire qui s'étendent sur plusieurs semaines, la continuité de contexte est critique.</p>
+      </div>
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Abonnement Claude Code Max</div>
+        <p style="font-size:12px">Sur abonnement illimité, le coût tokens des résumés est absorbé. Le ratio valeur/coût est maximal.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ ATTENDRE — Server-beta en production</div>
+        <p style="font-size:12px">Le mode server-beta (Postgres + Redis) n'est pas encore stable. Rester sur worker local.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ NON — Clé API pay-per-token intensive</div>
+        <p style="font-size:12px">Si vous payez à l'appel API, chaque résumé de session s'accumule. À évaluer selon volume.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ ATTENDRE — Données confidentielles sensibles</div>
+        <p style="font-size:12px">Même en local, les observations sont en clair dans SQLite. Utiliser les balises &lt;private&gt; pour exclure le contenu sensible.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ NON — Équipe multi-dev (sans server-beta)</div>
+        <p style="font-size:12px">Le mode worker local est mono-utilisateur. Server-beta requis pour le partage d'équipe, mais instable.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Roadmap</h2>
+    <table>
+      <tr><th>Feature</th><th>Statut</th><th>Impact</th></tr>
+      <tr><td>Server-beta (Postgres + BullMQ)</td><td><span class="tag yellow">🔄 Beta</span></td><td>Multi-user, équipes, cloud deploy</td></tr>
+      <tr><td>REST /v1 API</td><td><span class="tag green">✅ v13.0.0</span></td><td>Intégration externe possible</td></tr>
+      <tr><td>Multi-provider LLM</td><td><span class="tag green">✅ v13.1.0</span></td><td>OpenAI, Google en plus d'Anthropic</td></tr>
+      <tr><td>ChromaDB hybrid search</td><td><span class="tag green">✅ Stable</span></td><td>Recherche sémantique sur les observations</td></tr>
+      <tr><td>Docker stack</td><td><span class="tag yellow">🔄 Beta</span></td><td>Déploiement server-beta simplifié</td></tr>
+      <tr><td>Endless Mode</td><td><span class="tag purple">🧪 Expérimental</span></td><td>Sessions sans limite de contexte</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Recommandation finale</h2>
+    <div class="alert ok">
+      <strong>✅ Adopter maintenant — mode worker local</strong>
+      claude-mem est l'outil de mémoire persistante le plus mature de l'écosystème Claude Code. Pour un usage solo comme Yanis, le ratio valeur/friction est imbattable : une commande d'installation, zéro configuration obligatoire, et une mémoire qui s'accumule silencieusement. Le fait que tout soit local (127.0.0.1:37777), open-source et utilise votre propre clé API élimine tous les risques de confidentialité.
+    </div>
+    <div class="alert warn">
+      <strong>⚠️ Condition de passage en prod complète</strong>
+      Le combo avec graphify (C3-PRODUIT — projet TDA) est la vraie valeur ajoutée. Les observations SQLite de claude-mem (facts, concepts, narrative) sont exactement le format d'entrée pour graphify. Implémenter un export régulier observations → graphify pour construire le knowledge graph personnel. Ne pas adopter server-beta avant stabilisation (v14+). Surveiller le coût tokens si passage sur clé API facturée.
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Analyse fmaths + décodeur narratif · claude-mem v13.2.0 · Généré le 2026-05-18
+  · <a href="https://github.com/thedotmack/claude-mem" target="_blank">GitHub ↗</a>
+</footer>
+
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
