@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🕸️ graphify — Analyse</title>
+<style>
+  :root {
+    --bg: #1e1e1e; --surface: #252526; --surface2: #2d2d30; --border: #3e3e42;
+    --accent: #007acc; --accent2: #0e639c; --green: #4ec9b0; --yellow: #dcdcaa;
+    --orange: #ce9178; --red: #f44747; --purple: #c586c0; --blue: #9cdcfe;
+    --text: #d4d4d4; --text-dim: #858585;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+  .topbar { position: sticky; top: 0; z-index: 100; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0; padding: 0 24px; }
+  .topbar-title { font-size: 15px; font-weight: 600; color: var(--green); padding: 14px 20px 14px 0; border-right: 1px solid var(--border); margin-right: 8px; white-space: nowrap; }
+  .tab-btn { background: none; border: none; color: var(--text-dim); cursor: pointer; padding: 14px 18px; font-size: 13px; border-bottom: 2px solid transparent; transition: all 0.15s; }
+  .tab-btn:hover { color: var(--text); background: var(--surface2); }
+  .tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+  .content { display: none; max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+  .content.active { display: block; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 20px 24px; margin-bottom: 20px; }
+  .card h2 { font-size: 16px; font-weight: 600; color: var(--yellow); margin-bottom: 14px; }
+  .card h3 { font-size: 14px; font-weight: 600; color: var(--blue); margin: 16px 0 8px; }
+  .card p { margin-bottom: 10px; }
+  .card ul { padding-left: 20px; } .card li { margin-bottom: 6px; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; margin: 2px; }
+  .tag.green { background: rgba(78,201,176,0.15); color: var(--green); border: 1px solid rgba(78,201,176,0.3); }
+  .tag.yellow { background: rgba(220,220,170,0.12); color: var(--yellow); border: 1px solid rgba(220,220,170,0.25); }
+  .tag.red { background: rgba(244,71,71,0.12); color: var(--red); border: 1px solid rgba(244,71,71,0.25); }
+  .tag.blue { background: rgba(156,220,254,0.1); color: var(--blue); border: 1px solid rgba(156,220,254,0.2); }
+  .tag.purple { background: rgba(197,134,192,0.12); color: var(--purple); border: 1px solid rgba(197,134,192,0.25); }
+  .tag.orange { background: rgba(206,145,120,0.12); color: var(--orange); border: 1px solid rgba(206,145,120,0.25); }
+  .layer-badge { display: inline-block; background: var(--accent2); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 3px; margin-right: 8px; }
+  .alert { padding: 12px 16px; border-radius: 5px; margin: 12px 0; font-size: 13px; }
+  .alert.ok { background: rgba(78,201,176,0.1); border-left: 3px solid var(--green); }
+  .alert.warn { background: rgba(220,220,170,0.1); border-left: 3px solid var(--yellow); }
+  .alert.danger { background: rgba(244,71,71,0.1); border-left: 3px solid var(--red); }
+  .alert strong { display: block; margin-bottom: 4px; }
+  .invariant-row { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .invariant-row:last-child { border-bottom: none; }
+  .inv-label { color: var(--purple); font-weight: 700; font-size: 12px; min-width: 30px; }
+  .pull-quote { border-left: 3px solid var(--green); padding: 12px 16px; margin: 16px 0; background: var(--surface2); border-radius: 0 5px 5px 0; font-style: italic; color: var(--green); }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  th { background: var(--surface2); color: var(--yellow); text-align: left; padding: 8px 12px; font-size: 12px; border: 1px solid var(--border); }
+  td { padding: 7px 12px; border: 1px solid var(--border); font-size: 13px; vertical-align: top; }
+  tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+  pre { background: #0d0d0d; border: 1px solid var(--border); border-radius: 5px; padding: 14px 16px; overflow-x: auto; margin: 10px 0; }
+  code { font-family: 'Cascadia Code', 'Fira Code', monospace; font-size: 12px; color: var(--green); }
+  p code, li code { background: var(--surface2); padding: 1px 5px; border-radius: 3px; color: var(--orange); font-size: 12px; }
+  .pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin: 14px 0; }
+  .pipe-node { background: var(--surface2); border: 1px solid var(--accent); color: var(--blue); padding: 7px 14px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+  .pipe-arrow { color: var(--text-dim); padding: 0 4px; font-size: 16px; }
+  .progress-row { display: flex; align-items: center; gap: 12px; margin: 8px 0; }
+  .progress-label { width: 160px; font-size: 12px; color: var(--text-dim); }
+  .progress-bar { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; }
+  .risk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .risk-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; padding: 14px; }
+  .risk-card .risk-title { font-weight: 600; font-size: 13px; margin-bottom: 6px; }
+  .use-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 14px 0; }
+  .use-case { background: var(--surface2); border-radius: 5px; padding: 14px; border: 1px solid var(--border); }
+  .use-case.yes { border-left: 3px solid var(--green); }
+  .use-case.no { border-left: 3px solid var(--red); }
+  .use-case .uc-label { font-size: 11px; font-weight: 700; margin-bottom: 6px; }
+  .use-case.yes .uc-label { color: var(--green); }
+  .use-case.no .uc-label { color: var(--red); }
+  .score-row { display: flex; align-items: center; gap: 16px; margin: 10px 0; }
+  .score-num { font-size: 28px; font-weight: 700; color: var(--green); min-width: 50px; }
+  footer { text-align: center; padding: 24px; color: var(--text-dim); font-size: 12px; border-top: 1px solid var(--border); margin-top: 40px; }
+  footer a { color: var(--accent); text-decoration: none; }
+  .node-type { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin: 3px; }
+  .node-extracted { background: rgba(78,201,176,0.12); border: 1px solid var(--green); color: var(--green); }
+  .node-inferred { background: rgba(220,220,170,0.1); border: 1px solid var(--yellow); color: var(--yellow); }
+  .node-ambiguous { background: rgba(206,145,120,0.1); border: 1px solid var(--orange); color: var(--orange); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-title">🕸️ graphify</div>
+  <button class="tab-btn active" onclick="switchTab('recit', this)">📖 Récit</button>
+  <button class="tab-btn" onclick="switchTab('fmaths', this)">🔬 Fmaths</button>
+  <button class="tab-btn" onclick="switchTab('install', this)">⚙️ Installation</button>
+  <button class="tab-btn" onclick="switchTab('verdict', this)">⚖️ Verdict PM</button>
+</div>
+
+<!-- ===== RÉCIT ===== -->
+<div class="content active" id="tab-recit">
+
+  <div class="card">
+    <h2>1. Le décor</h2>
+    <p>Un codebase, c'est un texte. Des milliers de fichiers qui s'appellent les uns les autres, se référencent, se contredisent parfois — mais dont personne ne voit la structure globale. <strong>graphify</strong> est la machine qui lit tout ça et vous rend un graphe : les concepts comme nœuds, les relations comme arêtes, les communautés comme clusters colorés.</p>
+    <p>L'entrée est multimodale — code Python, TypeScript, Go, Rust, PDFs, images, vidéos, URLs. La sortie est universelle — un <code>graph.html</code> interactif, un <code>graph.json</code> requêtable, un vault Obsidian, un wiki agent-crawlable. Avec 49k étoiles et un pipeline en 7 étapes pures, c'est l'outil de cartographie cognitive le plus adopté de l'écosystème Claude Code.</p>
+    <div class="pull-quote">"Turn any folder of code, SQL schemas, R scripts, docs, papers, images, or videos into a queryable knowledge graph." — 71.5x de réduction de tokens revendiquée.</div>
+  </div>
+
+  <div class="card">
+    <h2>2. Les règles du jeu</h2>
+    <p>Le pipeline suit un ordre strict et immuable : <strong>détecter → extraire → construire → clustériser → analyser → rédiger → exporter</strong>. Chaque étape est une fonction pure qui ne partage aucun état avec les autres. Les données transitent via des dictionnaires Python et des graphes NetworkX.</p>
+    <p>La tension principale du système : l'extraction a <strong>deux vitesses</strong>. Le parsing AST via tree-sitter est déterministe et rapide. L'extraction sémantique via Claude (vision, inférence) est probabiliste et coûteuse en tokens. Les arêtes INFERRED et AMBIGUOUS sont le produit du LLM — les EXTRACTED viennent du code lui-même.</p>
+    <div class="pull-quote">⚠️ Une arête INFERRED n'est pas une vérité — c'est une hypothèse de Claude. Le flag de confiance est la clé de lecture du graphe.</div>
+  </div>
+
+  <div class="card">
+    <h2>3. Le socle immuable</h2>
+    <p>Cinq invariants structurent le système. Toutes les arêtes ont un type de confiance — aucune relation sans label EXTRACTED, INFERRED, ou AMBIGUOUS. Le cache SHA256 garantit qu'un fichier non modifié n'est jamais retraité. Tout le processing est local — aucun serveur externe requis sauf Claude pour la sémantique. NetworkX est la représentation intermédiaire unique. Tous les outputs atterrissent dans <code>graphify-out/</code>.</p>
+    <div class="alert ok"><strong>✅ Avantage clé</strong>MIT license + processing local + formats ouverts (GraphML, Neo4j Cypher, JSON). Zéro lock-in. Vous pouvez exporter le graphe et l'utiliser dans n'importe quel autre outil.</div>
+  </div>
+
+  <div class="card">
+    <h2>4. Les leviers de transformation</h2>
+    <p>Le mode <code>--mode deep</code> active l'inférence agressive — plus de nœuds, plus d'arêtes INFERRED, plus de tokens consommés. Le mode <code>--update</code> recalcule uniquement les fichiers modifiés (cache SHA256). Le mode <code>--watch</code> rebuildait automatiquement sur chaque commit. La <strong>community detection via Leiden</strong> (algorithme de graspologic) regroupe les nœuds en clusters thématiques — c'est là que la topologie devient lisible.</p>
+    <p>Le MCP server stdio expose trois fonctions de requête directement dans Claude Code. L'export wiki (v0.1.7) génère un site agent-crawlable avec wikilinks entre communautés — idéal pour le combo avec claude-mem.</p>
+  </div>
+
+  <div class="card">
+    <h2>5. Les points de rupture</h2>
+    <table>
+      <tr><th>Seuil</th><th>Condition</th><th>Impact</th><th>Mitigation</th></tr>
+      <tr><td>Graphe trop dense</td><td>500+ nœuds fortement connectés</td><td>RAM élevée, render HTML lent</td><td>Filtres communauté dans vis.js</td></tr>
+      <tr><td>Tokens LLM</td><td>Corpus mixte images/PDFs large</td><td>Coût Claude API élevé (mode deep)</td><td>Cache SHA256 — ne reprocesse pas</td></tr>
+      <tr><td>Python PATH Windows</td><td>Scripts pip non dans PATH</td><td>Commande graphify introuvable</td><td>Ajouter %APPDATA%\Python\Scripts au PATH</td></tr>
+      <tr><td>tree-sitter bindings</td><td>Langage non supporté</td><td>Pas d'extraction AST</td><td>Fallback LLM pour sémantique</td></tr>
+      <tr><td>Version Python</td><td>&lt; 3.10</td><td>Installation échoue</td><td>pyenv ou mise à jour Python</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>6. Le chemin de moindre résistance</h2>
+    <div class="pipeline">
+      <div class="pipe-node">pip install graphifyy</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">graphify install</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">/graphify .</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">detect → extract</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">build → cluster</div>
+      <div class="pipe-arrow">→</div>
+      <div class="pipe-node">graphify-out/graph.html</div>
+    </div>
+    <p>Deux commandes d'installation, une invocation de skill. Le graphe HTML s'ouvre dans le navigateur avec filtres de communauté, recherche, et click-to-inspect. Le nœud de friction principal sur Windows : le PATH Python. Une fois résolu, le pipeline tourne sans intervention.</p>
+  </div>
+
+  <div class="card">
+    <h2>7. L'équilibre du risque</h2>
+    <p>Le projet est jeune en version (0.1.14) mais massif en adoption (49k étoiles en quelques semaines). La maturité algorithmique est réelle — NetworkX + Leiden sont des bibliothèques académiques éprouvées. Le risque principal est la <strong>dépendance à Claude</strong> pour l'extraction sémantique : chaque fichier non-code (image, PDF) consomme des tokens. Sur un corpus de conversations comme le projet TDA de Yanis, l'extraction peut devenir coûteuse.</p>
+    <p>Le combo <strong>claude-mem + graphify</strong> est la proposition de valeur centrale : claude-mem accumule les observations structurées (facts, concepts, narrative) par session, graphify les transforme en graphe navigable. C'est une mémoire à deux couches — temporelle dans la DB SQLite, topologique dans le graphe.</p>
+    <div class="pull-quote">"claude-mem = mémoire temporelle. graphify = mémoire topologique. Ensemble : un knowledge graph vivant qui grandit avec chaque session."</div>
+  </div>
+
+</div>
+
+<!-- ===== FMATHS ===== -->
+<div class="content" id="tab-fmaths">
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L0</span><strong>Ontologie — Objets fondamentaux</strong></div>
+    <table>
+      <tr><th>Primitive</th><th>Définition</th></tr>
+      <tr><td><code>File</code></td><td>Unité d'entrée — code, doc, image, PDF, URL (avec chemin + contenu)</td></tr>
+      <tr><td><code>Node</code></td><td>Concept extrait — id unique + label humain + source location</td></tr>
+      <tr><td><code>Edge</code></td><td>Relation — source + target + type confiance (EXTRACTED/INFERRED/AMBIGUOUS)</td></tr>
+      <tr><td><code>Graph</code></td><td>Structure NetworkX assemblant nodes + edges</td></tr>
+      <tr><td><code>Community</code></td><td>Cluster de nodes (Leiden algorithm) — thème cohérent</td></tr>
+      <tr><td><code>Extractor</code></td><td>Module de parsing spécialisé (AST tree-sitter, LLM, vision Claude)</td></tr>
+      <tr><td><code>Cache</code></td><td>Stockage SHA256 → rebuild incrémental si fichier modifié</td></tr>
+      <tr><td><code>Report</code></td><td>Artefact de sortie dans graphify-out/ (HTML, JSON, MD, Obsidian, Wiki)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L1</span><strong>Ensembles & Relations</strong></div>
+    <table>
+      <tr><th>De</th><th>Transformation</th><th>Vers</th></tr>
+      <tr><td>Files</td><td>detect() — filtre selon extensions</td><td>Subset de fichiers traités</td></tr>
+      <tr><td>Subset</td><td>extract() — AST + LLM</td><td>{nodes[], edges[]}</td></tr>
+      <tr><td>{nodes, edges}</td><td>build_graph() — NetworkX</td><td>Graph G</td></tr>
+      <tr><td>G</td><td>cluster() — Leiden</td><td>Communities {C₁, C₂, …Cₙ}</td></tr>
+      <tr><td>G + Communities</td><td>analyze() — god nodes, anomalies</td><td>Analysis report</td></tr>
+      <tr><td>G + Analysis</td><td>report() → export()</td><td>graph.html + graph.json + GRAPH_REPORT.md</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L2</span><strong>Logique & Connecteurs</strong></div>
+    <table>
+      <tr><th>Condition</th><th>Résultat</th></tr>
+      <tr><td>File code AND tree-sitter binding présent</td><td>Edge EXTRACTED (déterministe, AST)</td></tr>
+      <tr><td>File code AND tree-sitter absent</td><td>Fallback LLM → Edge INFERRED</td></tr>
+      <tr><td>File image/PDF/video</td><td>Claude vision → Edge INFERRED ou AMBIGUOUS</td></tr>
+      <tr><td>SHA256(file) == cache</td><td>Skip extraction → réutilise nodes/edges existants</td></tr>
+      <tr><td>SHA256(file) != cache</td><td>Reprocesse le fichier → met à jour le cache</td></tr>
+      <tr><td>mode deep</td><td>Inférence agressive → plus d'INFERRED, plus de tokens</td></tr>
+    </table>
+    <div style="margin-top:12px">
+      <p><strong>Types de confiance des arêtes :</strong></p>
+      <span class="node-type node-extracted">EXTRACTED — trouvé explicitement dans le code</span>
+      <span class="node-type node-inferred">INFERRED — déduit par le LLM</span>
+      <span class="node-type node-ambiguous">AMBIGUOUS — incertain, à vérifier</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L3</span><strong>Invariants</strong></div>
+    <div class="invariant-row"><span class="inv-label">I1</span><span>Toutes les arêtes ont un type de confiance — jamais de relation sans EXTRACTED/INFERRED/AMBIGUOUS</span></div>
+    <div class="invariant-row"><span class="inv-label">I2</span><span>Cache SHA256 — un fichier non modifié n'est jamais retraité</span></div>
+    <div class="invariant-row"><span class="inv-label">I3</span><span>Processing 100% local — NetworkX, Leiden, tree-sitter tournent sur la machine, Claude seulement pour sémantique</span></div>
+    <div class="invariant-row"><span class="inv-label">I4</span><span>NetworkX = représentation intermédiaire unique — tous les modules parlent ce format</span></div>
+    <div class="invariant-row"><span class="inv-label">I5</span><span>graphify-out/ = dossier de sortie standardisé — toujours à la même place</span></div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L4</span><strong>Axes de Variation</strong></div>
+    <table>
+      <tr><th>Axe</th><th>Min</th><th>Max</th><th>Défaut</th></tr>
+      <tr><td>Mode extraction</td><td>default (AST seul)</td><td>deep (AST + inférence LLM agressive)</td><td>default</td></tr>
+      <tr><td>Update</td><td>rebuild complet</td><td>incrémental (SHA256)</td><td>incrémental si cache présent</td></tr>
+      <tr><td>Formats sortie</td><td>HTML seul</td><td>HTML + JSON + MD + Obsidian + Wiki + SVG + Neo4j</td><td>HTML + JSON + MD</td></tr>
+      <tr><td>Input types</td><td>Code seul</td><td>Code + docs + images + PDFs + URLs + vidéos</td><td>Selon extensions détectées</td></tr>
+      <tr><td>Suivi continu</td><td>One-shot</td><td>--watch (post-commit hook)</td><td>One-shot</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L5</span><strong>Seuils & Stabilité</strong></div>
+    <div class="progress-row"><span class="progress-label">Maturité algorithmique</span><div class="progress-bar"><div class="progress-fill" style="width:90%;background:var(--green)"></div></div><span>90%</span></div>
+    <div class="progress-row"><span class="progress-label">Stabilité API (v0.1.x)</span><div class="progress-bar"><div class="progress-fill" style="width:60%;background:var(--yellow)"></div></div><span>60%</span></div>
+    <div class="progress-row"><span class="progress-label">Scalabilité grands corpus</span><div class="progress-bar"><div class="progress-fill" style="width:55%;background:var(--yellow)"></div></div><span>55%</span></div>
+    <div class="progress-row"><span class="progress-label">Couverture langages</span><div class="progress-bar"><div class="progress-fill" style="width:85%;background:var(--green)"></div></div><span>85%</span></div>
+    <div class="alert warn" style="margin-top:12px"><strong>⚠️ Projet en 0.1.x</strong>Malgré 49k stars, c'est une version mineure. L'API (flags CLI, formats sortie) peut changer entre 0.1.x et 0.2.x. Ne pas scripter dessus sans tests de non-régression.</div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L6</span><strong>Catégories & Couplages</strong></div>
+    <table>
+      <tr><th>Module</th><th>Statut</th><th>Couplage</th></tr>
+      <tr><td>detect + extract (AST)</td><td><span class="tag green">✅ Stable</span></td><td>Fort avec tree-sitter (bindings)</td></tr>
+      <tr><td>build_graph (NetworkX)</td><td><span class="tag green">✅ Stable</span></td><td>Faible — standard Python</td></tr>
+      <tr><td>cluster (Leiden/graspologic)</td><td><span class="tag green">✅ Stable</span></td><td>Moyen — graspologic dépendance</td></tr>
+      <tr><td>LLM extraction (Claude vision)</td><td><span class="tag yellow">⚠️ Coûteux</span></td><td>Fort avec Claude API</td></tr>
+      <tr><td>MCP server stdio</td><td><span class="tag green">✅ Stable</span></td><td>Faible (standard MCP)</td></tr>
+      <tr><td>Wiki export (v0.1.7+)</td><td><span class="tag green">✅ Stable</span></td><td>Faible (markdown statique)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L7</span><strong>Topologie — Happy Path</strong></div>
+    <div class="pipeline" style="flex-direction:column;align-items:flex-start;gap:6px">
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">1. pip install graphifyy && graphify install</div><span style="color:var(--text-dim);font-size:12px">← 2 commandes</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">2. /graphify . (Claude Code)</div><span style="color:var(--text-dim);font-size:12px">← skill invoqué</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">3. detect() — filtre fichiers</div><span style="color:var(--text-dim);font-size:12px">← extensions connues</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">4. extract() — AST + LLM</div><span style="color:var(--text-dim);font-size:12px">← nodes + edges typés</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">5. cluster() — Leiden</div><span style="color:var(--text-dim);font-size:12px">← communautés thématiques</span></div>
+      <div style="color:var(--text-dim);padding-left:14px">↓</div>
+      <div style="display:flex;align-items:center;gap:10px"><div class="pipe-node">6. graphify-out/graph.html</div><span style="color:var(--text-dim);font-size:12px">← visualisation interactive</span></div>
+    </div>
+    <div class="alert warn" style="margin-top:14px"><strong>⚠️ PATH Windows</strong>Après <code>pip install graphifyy</code>, la commande <code>graphify</code> peut être introuvable. Ajouter <code>%APPDATA%\Python\Python3xx\Scripts</code> au PATH système.</div>
+  </div>
+
+  <div class="card">
+    <div style="margin-bottom:16px"><span class="layer-badge">L8</span><strong>Probabilités & Incertitude</strong></div>
+    <div class="risk-grid">
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--green)">P(lock-in) = 0.10</div>
+        <p style="font-size:12px;color:var(--text-dim)">MIT + GraphML + Neo4j Cypher + JSON. Formats ouverts, migration vers tout autre outil de graphe triviale.</p>
+      </div>
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--yellow)">P(rupture API) = 0.30</div>
+        <p style="font-size:12px;color:var(--text-dim)">Version 0.1.x — l'API CLI peut changer. Surveiller CHANGELOG entre versions.</p>
+      </div>
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--yellow)">P(coût tokens élevé) = 0.50</div>
+        <p style="font-size:12px;color:var(--text-dim)">Sur corpus mixte (images, PDFs, conversations), l'extraction LLM peut coûter cher. Cache SHA256 mitige mais ne supprime pas.</p>
+      </div>
+      <div class="risk-card">
+        <div class="risk-title" style="color:var(--green)">P(abandon projet) = 0.08</div>
+        <p style="font-size:12px;color:var(--text-dim)">49k stars, MIT, croissance explosive. Probabilité d'abandon quasi-nulle à court terme.</p>
+      </div>
+    </div>
+    <h3>Vecteur cognitif</h3>
+    <table>
+      <tr><th>Dimension</th><th>État</th><th>Note</th></tr>
+      <tr><td>Abstraction</td><td><span class="tag green">✅</span></td><td>Pipeline 7 étapes, primitives claires</td></tr>
+      <tr><td>Concrétude</td><td><span class="tag green">✅</span></td><td>NetworkX, Leiden — algorithmes éprouvés</td></tr>
+      <tr><td>Affect</td><td><span class="tag green">✅</span></td><td>49k stars, communauté très active</td></tr>
+      <tr><td>Normativité</td><td><span class="tag yellow">⚠️</span></td><td>v0.1.x — API pas encore stabilisée</td></tr>
+      <tr><td>Incertitude</td><td><span class="tag yellow">⚠️</span></td><td>INFERRED/AMBIGUOUS edges — vérité partielle</td></tr>
+      <tr><td>Altérité</td><td><span class="tag green">✅</span></td><td>31+ langages, multi-format input</td></tr>
+      <tr><td>Cohérence</td><td><span class="tag green">✅</span></td><td>Fonctions pures, pas d'état partagé</td></tr>
+    </table>
+  </div>
+
+</div>
+
+<!-- ===== INSTALLATION ===== -->
+<div class="content" id="tab-install">
+
+  <div class="card">
+    <h2>Prérequis</h2>
+    <table>
+      <tr><th>Outil</th><th>Version min</th><th>Vérification</th></tr>
+      <tr><td>Python</td><td>3.10</td><td><code>python --version</code></td></tr>
+      <tr><td>pip</td><td>inclus Python</td><td><code>pip --version</code></td></tr>
+      <tr><td>Claude Code CLI</td><td>avec skill support</td><td><code>claude --version</code></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Option A — Installation rapide</h2>
+    <pre><code># Installer le package Python
+pip install graphifyy
+
+# Enregistrer le skill Claude Code
+graphify install
+
+# Vérifier l'installation
+graphify --version</code></pre>
+    <div class="alert warn"><strong>⚠️ Windows — PATH manquant</strong>Si <code>graphify</code> est introuvable après l'install :
+<pre><code># Trouver le dossier Scripts Python
+python -c "import sys; print(sys.prefix + '\\Scripts')"
+
+# Ajouter au PATH (PowerShell, permanent)
+[Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";C:\Users\bensa\AppData\Roaming\Python\Python3xx\Scripts", "User")</code></pre></div>
+  </div>
+
+  <div class="card">
+    <h2>Option B — Depuis le repo source</h2>
+    <pre><code>git clone https://github.com/safishamsi/graphify
+cd graphify
+pip install -e .
+graphify install</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Usage dans Claude Code</h2>
+    <pre><code># Analyser le dossier courant
+/graphify .
+
+# Mode deep (inférence agressive, plus de tokens)
+/graphify ./src --mode deep
+
+# Update incrémental (seulement fichiers modifiés)
+/graphify . --update
+
+# Watch mode (rebuild auto sur commit)
+/graphify . --watch
+
+# Requêter le graphe existant
+/graphify query "quelles sont les dépendances de X ?"
+
+# Ajouter une URL externe
+/graphify add https://example.com/doc.pdf</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Formats d'export</h2>
+    <pre><code># Générer le wiki agent-crawlable
+/graphify . --wiki
+
+# Export GraphML (pour Gephi, yEd)
+/graphify . --format graphml
+
+# Export Neo4j Cypher
+/graphify . --format neo4j
+
+# Export SVG
+/graphify . --format svg</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>Post-commit hook (watch automatique)</h2>
+    <pre><code># Installer le hook git
+graphify hook install
+
+# Désinstaller
+graphify hook uninstall</code></pre>
+    <div class="alert ok"><strong>✅ Résultat attendu</strong>Après chaque commit, le graphe se rebuilde automatiquement (AST seul, pas de LLM). Les modifications sémantiques demandent un <code>--update</code> manuel.</div>
+  </div>
+
+</div>
+
+<!-- ===== VERDICT ===== -->
+<div class="content" id="tab-verdict">
+
+  <div class="card">
+    <h2>Score PM — 3 dimensions</h2>
+    <div class="score-row">
+      <div class="score-num">9.4</div>
+      <div>
+        <div style="font-weight:600;color:var(--yellow)">Pertinence — Knowledge graph pour projet TDA/conversations</div>
+        <div style="font-size:12px;color:var(--text-dim)">Yanis a un projet TDA sur ses conversations Claude. graphify transforme exactement ce type de corpus (markdown, sessions, docs) en graphe navigable. Use case parfait.</div>
+      </div>
+    </div>
+    <div class="score-row">
+      <div class="score-num">7.8</div>
+      <div>
+        <div style="font-weight:600;color:var(--yellow)">Maturité prod</div>
+        <div style="font-size:12px;color:var(--text-dim)">49k stars, MIT, algorithmes éprouvés. Bémol : v0.1.x, API instable entre mineurs. À utiliser avec version fixée.</div>
+      </div>
+    </div>
+    <div class="score-row">
+      <div class="score-num">8.9</div>
+      <div>
+        <div style="font-weight:600;color:var(--yellow)">Facilité onboarding</div>
+        <div style="font-size:12px;color:var(--text-dim)">2 commandes, skill auto-enregistré. Friction principale : PATH Python sur Windows. Une fois résolu, totalement fluide.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Forces</h2>
+    <table>
+      <tr><th>Force</th><th>Description</th></tr>
+      <tr><td>🕸️ Pipeline pur</td><td>7 étapes, fonctions pures, pas d'état partagé. Architecture auditable et extensible.</td></tr>
+      <tr><td>🔒 Zéro lock-in</td><td>MIT + GraphML + Neo4j + JSON. Sortie exploitable dans tout autre outil de graphe.</td></tr>
+      <tr><td>⚡ Cache SHA256</td><td>Rebuild incrémental — seuls les fichiers modifiés sont reprocessés. Économie tokens réelle.</td></tr>
+      <tr><td>🎯 Confiance explicite</td><td>EXTRACTED/INFERRED/AMBIGUOUS. Chaque arête sait ce qu'elle est.</td></tr>
+      <tr><td>🌍 31+ langages</td><td>tree-sitter couvre Python, TS, Go, Rust, Java, C, C#, Kotlin, Scala, Ruby, PHP et plus.</td></tr>
+      <tr><td>🤝 Combo claude-mem</td><td>Les observations SQLite de claude-mem sont le format d'entrée naturel pour graphify.</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Faiblesses & Risques</h2>
+    <table>
+      <tr><th>Risque</th><th>Impact</th></tr>
+      <tr><td>⚠️ API instable (v0.1.x)</td><td>Flags CLI peuvent changer entre versions. Fixer la version dans requirements.txt.</td></tr>
+      <tr><td>💸 Coût tokens mode deep</td><td>Sur corpus images/PDFs large, chaque fichier consomme des tokens Claude. Éviter deep sur gros corpus non cachés.</td></tr>
+      <tr><td>🪟 PATH Windows</td><td>Scripts pip non dans PATH par défaut. Étape d'installation non documentée clairement.</td></tr>
+      <tr><td>📊 RAM sur grands graphes</td><td>NetworkX garde tout en mémoire. 500+ nœuds = lenteur possible sur render HTML.</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Matrice Use Cases</h2>
+    <div class="use-cases">
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — TDA corpus conversations</div>
+        <p style="font-size:12px">Projet TDA de Yanis — transformer ses sessions Claude en graphe de concepts. C'est exactement l'usage prévu.</p>
+      </div>
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Onboarding codebase inconnue</div>
+        <p style="font-size:12px">Cloner un repo, lancer /graphify, avoir la carte du codebase en 2 minutes. 71.5x moins de tokens qu'une lecture brute.</p>
+      </div>
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Combo avec claude-mem</div>
+        <p style="font-size:12px">Les champs facts/concepts/narrative de claude-mem → nœuds graphify. Knowledge graph personnel qui grandit avec chaque session.</p>
+      </div>
+      <div class="use-case yes">
+        <div class="uc-label">✅ OUI — Documentation architecture</div>
+        <p style="font-size:12px">Générer le wiki (--wiki) pour avoir une doc agent-crawlable auto-générée du projet. Idéal pour khaldoun ou claire-app.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ ATTENDRE — Corpus images/PDFs massif</div>
+        <p style="font-size:12px">Chaque image/PDF = appel Claude. Sur 100+ fichiers non cachés, le coût devient significatif.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ NON — Scripting automatisé sans version fixée</div>
+        <p style="font-size:12px">API v0.1.x instable. Ne pas scripter en CI/CD sans <code>pip install graphifyy==0.1.14</code> explicite.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ ATTENDRE — Graphes > 1000 nœuds en prod</div>
+        <p style="font-size:12px">NetworkX en mémoire + render vis.js côté client. Scalabilité pas encore validée sur très grands corpus.</p>
+      </div>
+      <div class="use-case no">
+        <div class="uc-label">❌ NON — Remplacement d'une vraie DB graphe</div>
+        <p style="font-size:12px">graphify est un outil d'exploration/visualisation, pas Neo4j. Pour des requêtes graph complexes en prod, exporter vers Neo4j.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Roadmap</h2>
+    <table>
+      <tr><th>Feature</th><th>Statut</th><th>Impact</th></tr>
+      <tr><td>Wiki export (--wiki)</td><td><span class="tag green">✅ v0.1.7</span></td><td>Doc agent-crawlable, wikilinks entre communautés</td></tr>
+      <tr><td>MCP stdio server</td><td><span class="tag green">✅ v0.1.0</span></td><td>Requêtes graph directes dans Claude Code</td></tr>
+      <tr><td>Watch mode (auto-rebuild)</td><td><span class="tag green">✅ Stable</span></td><td>Graphe toujours à jour après commit</td></tr>
+      <tr><td>Neo4j export</td><td><span class="tag green">✅ Stable</span></td><td>Migration vers DB graphe production</td></tr>
+      <tr><td>31+ langages tree-sitter</td><td><span class="tag green">✅ Stable</span></td><td>Couverture quasi-universelle</td></tr>
+      <tr><td>v0.2.x (API stable)</td><td><span class="tag yellow">🔄 Planifié</span></td><td>Stabilisation CLI, scriptable en CI/CD</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Recommandation finale</h2>
+    <div class="alert ok">
+      <strong>✅ Adopter maintenant — usage exploration et TDA</strong>
+      graphify est l'outil de cartographie cognitive manquant dans le workflow de Yanis. Pour le projet TDA conversations (C3-PRODUIT), il transforme un corpus de sessions Claude en graphe topologique navigable — exactement ce qu'un algorithme TDA nécessite comme input structuré. L'installation est triviale, le résultat HTML est immédiatement exploitable, et MIT garantit zéro friction pour un usage personnel.
+    </div>
+    <div class="alert warn">
+      <strong>⚠️ Conditions d'usage optimal</strong>
+      Fixer la version (<code>pip install graphifyy==0.1.14</code>) pour éviter les ruptures API. Activer le cache systématiquement avant tout corpus large. Pour le combo claude-mem : exporter les observations SQLite en JSON → les passer à graphify comme input. Ne pas utiliser --mode deep sur des dossiers de plus de 50 fichiers non cachés sans avoir estimé le coût tokens.
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  Analyse fmaths + décodeur narratif · graphify v0.1.14 · Généré le 2026-05-18
+  · <a href="https://github.com/safishamsi/graphify" target="_blank">GitHub ↗</a>
+</footer>
+
+<script>
+function switchTab(name, btn) {
+  document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+}
+</script>
+</body>
+</html>
